@@ -139,9 +139,21 @@ fetch)
   ;;
 
 grid)
-  RADAR="${1:?radar required}"
-  dock sh -c "python scripts/make_grid.py /workspace/radar_data/${RADAR}_*.nc --overwrite" \
-    2>&1 | quiet | grep -E "coverage|wrote|ERROR|grids written|failed" || true
+  RADAR="${1:?radar required}"; shift
+  if [ "$#" -gt 0 ]; then
+    # Specific timestamps supplied: build one glob per timestamp so we don't
+    # re-grid the entire archive when only a window was requested.
+    FILES=""
+    for TS in "$@"; do
+      FILES="${FILES} /workspace/radar_data/${RADAR}_*${TS}*.nc"
+    done
+    dock sh -c "python scripts/make_grid.py ${FILES}" \
+      2>&1 | quiet | grep -E "coverage|wrote|ERROR|grids written|failed" || true
+  else
+    # No timestamps: grid everything for this radar (skips already-done files).
+    dock sh -c "python scripts/make_grid.py /workspace/radar_data/${RADAR}_*.nc" \
+      2>&1 | quiet | grep -E "coverage|wrote|ERROR|grids written|failed" || true
+  fi
   ;;
 
 track)
@@ -225,7 +237,7 @@ run)
   TSLIST="$(resolve_ts "${RADAR}" "$@")"
   [ -n "${TSLIST}" ] || { echo "no volumes matched" >&2; exit 1; }
   "${BASH_SOURCE[0]}" fetch "${RADAR}" ${TSLIST}
-  "${BASH_SOURCE[0]}" grid "${RADAR}"
+  "${BASH_SOURCE[0]}" grid "${RADAR}" ${TSLIST}
   echo "--- waiting 31s: the tracker ignores grids newer than grilla_edad_minima"
   sleep 31
   "${BASH_SOURCE[0]}" track
