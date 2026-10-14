@@ -207,8 +207,11 @@ serve)
   ;;
 
 status)
+  RADAR="${1:-}"; shift 2>/dev/null || true
   dock python scripts/status.py --grids /workspace/grids \
-       --radar-data /workspace/radar_data ${EXPECT:+--expect "${EXPECT}"} 2>&1 | quiet
+       --radar-data /workspace/radar_data \
+       ${RADAR:+--radar "${RADAR}"} \
+       ${EXPECT:+--expect "${EXPECT}"} 2>&1 | quiet
   ;;
 
 clean)
@@ -229,7 +232,7 @@ run)
   "${BASH_SOURCE[0]}" db
   "${BASH_SOURCE[0]}" map
   echo
-  EXPECT="$(echo ${TSLIST} | tr ' ' ',')" "${BASH_SOURCE[0]}" status
+  EXPECT="$(echo ${TSLIST} | tr ' ' ',')" "${BASH_SOURCE[0]}" status "${RADAR}"
   ;;
 
 -h|--help|help|"") usage ;;

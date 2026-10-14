@@ -22,9 +22,10 @@ from pathlib import Path
 TS_RE = re.compile(r"(\d{8}T\d{6})")
 
 
-def stamps_in(d: Path) -> list[datetime]:
+def stamps_in(d: Path, radar: str | None = None) -> list[datetime]:
+    pattern = f"{radar}_*.nc" if radar else "*.nc"
     out = []
-    for p in sorted(d.glob("*.nc")):
+    for p in sorted(d.glob(pattern)):
         m = TS_RE.search(p.name)
         if m:
             out.append(datetime.strptime(m.group(1), "%Y%m%dT%H%M%S")
@@ -37,14 +38,17 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--grids", type=Path, default=Path("/workspace/grids"))
     ap.add_argument("--radar-data", type=Path, default=Path("/workspace/radar_data"))
+    ap.add_argument("--radar", default=None,
+                    help="filter by radar name (e.g. RMA5) when all radars share a directory")
     ap.add_argument("--max-gap", type=float, default=20.0,
                     help="Config.max_gap_tracking_min (default 20)")
     ap.add_argument("--expect", default=None,
                     help="comma-separated timestamps that were requested")
     args = ap.parse_args()
 
-    grids = stamps_in(args.grids)
-    fetched = stamps_in(args.radar_data)
+    radar = args.radar.upper() if args.radar else None
+    grids = stamps_in(args.grids, radar)
+    fetched = stamps_in(args.radar_data, radar)
 
     if not grids:
         print("no grids found — nothing for the tracker to read")
