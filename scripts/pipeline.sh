@@ -71,6 +71,9 @@ dock() {
     -e PYTHONPATH=/workspace/gl-tracker:/workspace/gl-tracker/scripts:/workspace/gl-radarlib/src \
     -e GRILLA_RAIZ=/workspace/grids \
     -e TRACKING_OUT=/workspace/tracking_out \
+    -e FTP_HOST="${FTP_HOST:-}" \
+    -e FTP_USER="${FTP_USER:-}" \
+    -e FTP_PASS="${FTP_PASS:-}" \
     -w /workspace/gl-tracker \
     "${IMAGE}" "$@"
 }
