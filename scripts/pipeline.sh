@@ -229,12 +229,15 @@ status)
 clean)
   # Run inside the container: files are created by the container process (root)
   # so only the container can remove them without permission errors on the host.
-  dock sh -c "
-    rm -f /workspace/grids/*.nc
-    rm -f /workspace/tracking_out/systems-db.sqlite
-    rm -f /workspace/tracking_out/estado_tracking.pkl
-  "
-  echo "cleared grids and tracking_out (CFRadial files in radar_data kept)"
+  dock sh -c '
+    echo "grids dir: $(ls /workspace/grids/*.nc 2>/dev/null | wc -l) .nc file(s)"
+    find /workspace/grids -maxdepth 3 -name "*.nc" -print -delete
+    echo "grids cleared"
+    for f in /workspace/tracking_out/systems-db.sqlite \
+              /workspace/tracking_out/estado_tracking.pkl; do
+      [ -f "$f" ] && rm -f "$f" && echo "removed $f" || true
+    done
+  '
   ;;
 
 run)
