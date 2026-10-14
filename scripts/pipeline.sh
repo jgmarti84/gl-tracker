@@ -227,8 +227,13 @@ status)
   ;;
 
 clean)
-  rm -f "${GRIDS_DIR}"/*.nc "${TRACKING_OUT_DIR}/systems-db.sqlite" \
-        "${TRACKING_OUT_DIR}/estado_tracking.pkl" 2>/dev/null || true
+  # Run inside the container: files are created by the container process (root)
+  # so only the container can remove them without permission errors on the host.
+  dock sh -c "
+    rm -f /workspace/grids/*.nc
+    rm -f /workspace/tracking_out/systems-db.sqlite
+    rm -f /workspace/tracking_out/estado_tracking.pkl
+  "
   echo "cleared grids and tracking_out (CFRadial files in radar_data kept)"
   ;;
 
