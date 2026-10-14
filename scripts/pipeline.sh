@@ -83,7 +83,7 @@ quiet() { grep -vE "FutureWarning|warnings\.warn|^##|^###|Py-ART|ARM |Helmus|Dep
 resolve_ts() {
   local radar="$1"; shift
   case "${1:-}" in
-    --*) dock python scripts/list_volumes.py "${radar}" "$@" 2>/dev/null | cut -f1 ;;
+    --*) dock python scripts/list_volumes.py "${radar}" "$@" 2>&1 | tee /dev/stderr | grep -E "^[0-9]{8}T" | cut -f1 ;;
     *)   printf '%s\n' "$@" ;;
   esac
 }
@@ -103,7 +103,8 @@ survey)
   # Delegates the FTP walk to list_volumes.py: one LIST per directory and a
   # reconnecting retry, rather than an NLST plus a SIZE for every volume.
   dock python scripts/list_volumes.py "${RADAR}" \
-      ${DATE:+--date "${DATE}"} --sizes "$@" 2>/tmp/_survey_err \
+      ${DATE:+--date "${DATE}"} --sizes "$@" \
+    2> >(grep -v "^[0-9]\+ volume" >&2) \
     | awk -v radar="${RADAR}" -v date="${DATE:-today}" '
       BEGIN{ printf "%s  %s\n\n%-18s %10s   %s\n", radar, date,
                     "timestamp", "DBZH size", "(bigger = more echo)" }
@@ -117,8 +118,6 @@ survey)
              for(i=1;i<=NR;i++) if(b[i]>bv){bv=b[i]; bi=i}
              if(bi){ printf "%s ", a[bi]; b[bi]=-1 } }
            printf "\n" }'
-  grep -qiE "error|no volumes" /tmp/_survey_err && cat /tmp/_survey_err >&2
-  rm -f /tmp/_survey_err
   ;;
 
 fetch)

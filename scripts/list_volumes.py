@@ -27,6 +27,10 @@ HOST = os.environ.get("FTP_HOST", "")
 USER = os.environ.get("FTP_USER", "")
 PASS = os.environ.get("FTP_PASS", "")
 
+
+def _log(msg: str) -> None:
+    print(msg, file=sys.stderr, flush=True)
+
 TS_RE = re.compile(r"(\d{8}T\d{6}Z)")
 
 
@@ -39,6 +43,11 @@ class Ftp:
         self._connect()
 
     def _connect(self) -> None:
+        if not HOST:
+            raise RuntimeError(
+                "FTP_HOST is not set. "
+                "Export FTP_HOST, FTP_USER and FTP_PASS before running."
+            )
         self.conn = ftplib.FTP(HOST, timeout=self.timeout)
         self.conn.login(USER, PASS)
 
@@ -112,11 +121,17 @@ def volumes_for_date(ftp: Ftp, radar: str, date: str,
     listing and a dropped connection.
     """
     base = f"/L2/{radar}/{date}"
+    all_hours = sorted(h for h in ftp.ls(base) if re.fullmatch(r"\d{2}", h))
+    if not all_hours:
+        _log(f"  directory empty or not found: {base}")
+        return []
+    wanted = [h for h in all_hours if hours is None or h in hours]
+    _log(f"  {base}: {len(all_hours)} hour(s) on FTP, "
+         f"{len(wanted)} in requested window")
     out: list[tuple[str, int]] = []
-    for hour in sorted(h for h in ftp.ls(base) if re.fullmatch(r"\d{2}", h)):
-        if hours is not None and hour not in hours:
-            continue
-        for minute in sorted(ftp.ls(f"{base}/{hour}")):
+    for hour in wanted:
+        minutes = sorted(ftp.ls(f"{base}/{hour}"))
+        for minute in minutes:
             entries = ftp.ls_sized(f"{base}/{hour}/{minute}")
             dbzh = [(n, sz) for n, sz in entries if "_01_DBZH_" in n]
             if not dbzh:
@@ -147,10 +162,17 @@ def main() -> int:
     args = p.parse_args()
 
     radar = args.radar.upper()
+    _log(f"FTP  host={HOST or '(not set)'} user={USER or '(not set)'}")
+    if not HOST or not USER:
+        sys.exit(
+            "ERROR: FTP_HOST and FTP_USER must be set.\n"
+            "  export FTP_HOST=...  FTP_USER=...  FTP_PASS=..."
+        )
     try:
         ftp = Ftp()
+        _log(f"FTP  connected OK")
     except Exception as e:
-        sys.exit(f"ERROR: cannot reach FTP {HOST}: {e}")
+        sys.exit(f"ERROR: cannot connect to FTP {HOST}: {e}")
 
     today = datetime.now(timezone.utc)
     rows: list[tuple[str, int]] = []
@@ -159,6 +181,7 @@ def main() -> int:
         # Walk back day by day until enough volumes are found.
         for back in range(0, 3):
             day = (today - timedelta(days=back)).strftime("%Y/%m/%d")
+            _log(f"searching {radar} on {day} ...")
             rows = volumes_for_date(ftp, radar, day,
                                     args.allow_no_rhohv) + rows
             if len(rows) >= args.latest:
@@ -171,6 +194,9 @@ def main() -> int:
             h_lo = _hhmm(args.t_from)[0] if args.t_from else 0
             h_hi = _hhmm(args.t_to)[0] if args.t_to else 23
             hours = {f"{h:02d}" for h in range(h_lo, h_hi + 1)}
+        window = (f" {args.t_from or '00:00'}–{args.t_to or '23:59'} UTC"
+                  if args.t_from or args.t_to else "")
+        _log(f"searching {radar} on {date}{window} ...")
         rows = volumes_for_date(ftp, radar, date, args.allow_no_rhohv, hours)
         if args.t_from or args.t_to:
             lo = _hhmm(args.t_from) if args.t_from else (0, 0)
@@ -191,9 +217,9 @@ def main() -> int:
         print(f"{ts}\t{size/1e6:.2f}" if args.sizes else ts)
 
     if not rows:
-        print("no volumes matched", file=sys.stderr)
+        _log("no volumes matched — check radar name, date, and time window")
         return 1
-    print(f"{len(rows)} volume(s)", file=sys.stderr)
+    _log(f"{len(rows)} volume(s) found")
     return 0
 
 
