@@ -12,6 +12,10 @@ IMAGE="${GL_TRACKER_IMAGE:-gl-tracker:dev}"
 HOME_DIR="${HOME}"
 TRACKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RADARLIB_DIR="${RADARLIB_DIR:-${HOME_DIR}/gl-radarlib}"
+GEOMETRY_DIR="${GEOMETRY_DIR:-${HOME_DIR}/geometry}"
+RADAR_DATA_DIR="${RADAR_DATA_DIR:-${HOME_DIR}/radar_data}"
+GRIDS_DIR="${GRIDS_DIR:-${HOME_DIR}/grids}"
+TRACKING_OUT_DIR="${TRACKING_OUT_DIR:-${HOME_DIR}/tracking_out}"
 
 usage() {
 cat <<'USAGE'
@@ -53,17 +57,17 @@ Host directories used (created on demand):
 USAGE
 }
 
-mkdir -p "${HOME_DIR}"/{radar_data,grids,tracking_out}
+mkdir -p "${RADAR_DATA_DIR}" "${GRIDS_DIR}" "${TRACKING_OUT_DIR}"
 
 dock() {
   # -i so the heredoc-driven subcommands can pipe a script in on stdin
   docker run --rm -i \
     -v "${TRACKER_DIR}:/workspace/gl-tracker" \
     -v "${RADARLIB_DIR}:/workspace/gl-radarlib" \
-    -v "${HOME_DIR}/geometry:/workspace/geometry:ro" \
-    -v "${HOME_DIR}/radar_data:/workspace/radar_data" \
-    -v "${HOME_DIR}/grids:/workspace/grids" \
-    -v "${HOME_DIR}/tracking_out:/workspace/tracking_out" \
+    -v "${GEOMETRY_DIR}:/workspace/geometry:ro" \
+    -v "${RADAR_DATA_DIR}:/workspace/radar_data" \
+    -v "${GRIDS_DIR}:/workspace/grids" \
+    -v "${TRACKING_OUT_DIR}:/workspace/tracking_out" \
     -e PYTHONPATH=/workspace/gl-tracker:/workspace/gl-tracker/scripts:/workspace/gl-radarlib/src \
     -e GRILLA_RAIZ=/workspace/grids \
     -e TRACKING_OUT=/workspace/tracking_out \
@@ -179,7 +183,7 @@ map)
 open)
   # WSL has no browser of its own; explorer.exe hands the file to the Windows
   # default browser. Falls back to the usual openers elsewhere.
-  MAP="${HOME_DIR}/tracking_out/tracking_map.html"
+  MAP="${TRACKING_OUT_DIR}/tracking_map.html"
   [ -f "${MAP}" ] || { echo "no map yet — run \`pipeline.sh map\` first" >&2; exit 1; }
   if command -v wslpath >/dev/null && command -v explorer.exe >/dev/null; then
     explorer.exe "$(wslpath -w "${MAP}")" || true    # explorer.exe exits 1 even on success
@@ -192,12 +196,12 @@ serve)
   # Most reliable route in WSL2: WSL localhost is forwarded to Windows, so the
   # Windows browser reaches this directly, with no UNC-path handling involved.
   PORT="${1:-8900}"
-  MAP="${HOME_DIR}/tracking_out/tracking_map.html"
+  MAP="${TRACKING_OUT_DIR}/tracking_map.html"
   [ -f "${MAP}" ] || { echo "no map yet — run \`pipeline.sh map\` first" >&2; exit 1; }
-  echo "serving ${HOME_DIR}/tracking_out on http://localhost:${PORT}"
+  echo "serving ${TRACKING_OUT_DIR} on http://localhost:${PORT}"
   echo "open:  http://localhost:${PORT}/tracking_map.html"
   echo "(ctrl-c to stop)"
-  cd "${HOME_DIR}/tracking_out" && exec python3 -m http.server "${PORT}" --bind 127.0.0.1
+  cd "${TRACKING_OUT_DIR}" && exec python3 -m http.server "${PORT}" --bind 127.0.0.1
   ;;
 
 status)
@@ -206,9 +210,9 @@ status)
   ;;
 
 clean)
-  rm -f "${HOME_DIR}"/grids/*.nc "${HOME_DIR}"/tracking_out/systems-db.sqlite \
-        "${HOME_DIR}"/tracking_out/estado_tracking.pkl 2>/dev/null || true
-  echo "cleared ~/grids and ~/tracking_out (CFRadial files in ~/radar_data kept)"
+  rm -f "${GRIDS_DIR}"/*.nc "${TRACKING_OUT_DIR}/systems-db.sqlite" \
+        "${TRACKING_OUT_DIR}/estado_tracking.pkl" 2>/dev/null || true
+  echo "cleared grids and tracking_out (CFRadial files in radar_data kept)"
   ;;
 
 run)
