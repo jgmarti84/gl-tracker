@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+
+# runtime outputs — not source
+*.nc
+*.sqlite
+*.pkl
+*.html
+*.png
+*.npz
+*.zip
+*.pdf
+*.log
+*.txt
+
+# secrets
+.env
+genpro25.yml

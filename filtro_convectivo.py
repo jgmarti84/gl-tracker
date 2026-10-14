@@ -337,8 +337,20 @@ def preparar_volumen(dbzh: np.ndarray,
 # Adaptador TATHU: Descriptor que aplica el clasificador a cada sistema
 # ---------------------------------------------------------------------------
 
+def _atributos(system) -> dict:
+    """Diccionario de atributos de un ConvectiveSystem, sea cual sea la version.
+
+    TATHU renombro `ConvectiveSystem.fields` a `.attrs`. Este modulo se escribio
+    contra la version vieja; `pipeline.py` usa la nueva. Resolverlo aca evita
+    tener que fijar una version de TATHU y sobrevive a que el equipo vuelva a
+    entregar este archivo sin el cambio.
+    """
+    attrs = getattr(system, "attrs", None)
+    return attrs if attrs is not None else system.fields
+
+
 class ConvectiveClassifierDescriptor:
-    """Descriptor al estilo TATHU: escribe el veredicto en system.fields.
+    """Descriptor al estilo TATHU: escribe el veredicto en los atributos del sistema.
 
     Sigue el contrato describe(data, systems) de tathu.tracking.descriptors.
     Requiere shapely y rasterio para rasterizar el poligono de cada sistema
@@ -367,7 +379,7 @@ class ConvectiveClassifierDescriptor:
                 [(geom, 1)], out_shape=self.shape,
                 transform=self.transform, fill=0, dtype="uint8",
             ).astype(bool)
-            system.fields.update(self.vol.clasificar(mask, self.rhohv))
+            _atributos(system).update(self.vol.clasificar(mask, self.rhohv))
 
 
 def filtrar_convectivos(systems) -> list:
@@ -377,4 +389,4 @@ def filtrar_convectivos(systems) -> list:
     se resuelve despues del tracking, leyendo los eventos de ciclo de vida
     de TATHU, porque necesita la asociacion temporal entre volumenes.
     """
-    return [s for s in systems if s.fields.get("is_convective", False)]
+    return [s for s in systems if _atributos(s).get("is_convective", False)]

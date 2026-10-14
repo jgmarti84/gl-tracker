@@ -1,0 +1,52 @@
+{
+    "name": "gl-tracker Development Container",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/gl-tracker,type=bind",
+    "workspaceFolder": "/workspace/gl-tracker",
+    "mounts": [
+        // radarlib source, live. Reached through PYTHONPATH, not pip install,
+        // so edits apply immediately and no build step can go stale.
+        "source=${localEnv:HOME}/gl-radarlib,target=/workspace/gl-radarlib,type=bind",
+        // Interpolation geometry (.npz), shared with the genpro25-rma* services
+        "source=${localEnv:HOME}/geometry,target=/workspace/geometry,type=bind,readonly",
+        // CFRadial NetCDFs produced by radarlib's ProcessingDaemon
+        "source=${localEnv:HOME}/radar_data,target=/workspace/radar_data,type=bind",
+        // GeoTIFF/COG products — read-only, for cross-checking grids visually
+        "source=${localEnv:HOME}/product_output,target=/workspace/product_output,type=bind,readonly",
+        // Cartesian grids: written by the gridding step, consumed by the tracker
+        "source=${localEnv:HOME}/grids,target=/workspace/grids,type=bind",
+        // Tracker output: systems-db.sqlite + estado_tracking.pkl
+        "source=${localEnv:HOME}/tracking_out,target=/workspace/tracking_out,type=bind"
+    ],
+    "containerEnv": {
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        // gl-tracker imports its siblings as top-level modules (config, pipeline,
+        // gate, filtro_convectivo), so its root must be on the path.
+        "PYTHONPATH": "/workspace/gl-tracker:/workspace/gl-tracker/scripts:/workspace/gl-radarlib/src",
+        // Picked up by gl-tracker's Config (see its README)
+        "GRILLA_RAIZ": "/workspace/grids",
+        "TRACKING_OUT": "/workspace/tracking_out",
+        // Used by the gridding step
+        "ROOT_GEOMETRY_PATH": "/workspace/geometry",
+        "ROOT_RADAR_FILES_PATH": "/workspace/radar_data"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.testing.pytestEnabled": true,
+                "python.testing.unittestEnabled": false
+            },
+            "extensions": [
+                "ms-python.python",
+                "qwtel.sqlite-viewer"
+            ]
+        }
+    },
+    "postCreateCommand": "python scripts/verify_env.py",
+    "remoteUser": "root"
+}
