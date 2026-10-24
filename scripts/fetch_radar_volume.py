@@ -23,8 +23,8 @@ Options
   --radarlib-src P   radarlib src/ dir to add to sys.path (if not installed).
                      Default: ~/gl-radarlib/src
   --ftp-host HOST    FTP host     (default: 200.16.116.24)
-  --ftp-user USER    FTP user     (default: IMontamat)
-  --ftp-pass PASS    FTP password (default: from env RADAR_FTP_PASS or genpro25.yml)
+  --ftp-user USER    FTP user     (default: env FTP_USER)
+  --ftp-pass PASS    FTP password (default: env FTP_PASS)
   --keep-bufr        Keep downloaded BUFR files after creating the NetCDF.
   --dry-run          List the BUFR files that would be downloaded and exit.
 
