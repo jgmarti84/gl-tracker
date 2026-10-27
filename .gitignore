@@ -25,6 +25,6 @@ genpro25.yml
 # Local artifacts that must never be committed (prod logs, state DBs)
 *.db
 *.log.txt
-# Runtime evidence pulled from stage/operativo (see gl-platform) and personal scratch
+# Runtime evidence (logs, DB copies) and personal scratch: never commit
 ops-data/
 local/
