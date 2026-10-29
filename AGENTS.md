@@ -25,8 +25,10 @@ integration is a slim tracking sidecar on the gl-webmet25 side, fed by gl-radarl
    paste a secret value.
 4. **Run tests in a container, not on your host** (command below).
 5. **Don't delete files to tidy up.** Move them into the gitignored `local/` folder.
-6. **Every PR description says:** what changed and why; where it was tested; and
-   whether it changes the input grid contract (`grilla.py`) or the output format.
+6. **PR descriptions.** Agents always cover: what changed and why; where it was tested;
+   and whether it changes the input grid contract (`grilla.py`) or the output format.
+   For PRs written by people these are recommended, not required; the one worth never
+   skipping is a change to either contract.
 
 ## Design decisions not to break (details in README, "Decisiones de diseño")
 - **The gate never loses a system.** It must read `cfg.echotop_dbz` and
