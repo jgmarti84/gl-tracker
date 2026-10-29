@@ -71,9 +71,44 @@ class Salidas:
 # --------------------------------------------------------------------------
 
 def actualizar_historia(historia, systems):
+    """Agrega (timestamp, cx, cy, tasa de crecimiento) de cada sistema.
+
+    La tasa es la de TATHU (`compute_scale_factor`): cambio relativo de AREA por
+    minuto respecto de la suma de las areas previas, asi una fusion no cuenta
+    como crecimiento. None si no hay dt. Las entradas viejas del pickle tienen
+    solo 3 elementos; `tasa_crecimiento` las ignora.
+    """
     for s in systems:
         c = s.geom.Centroid()
-        historia[s.name].append((s.timestamp, c.GetX(), c.GetY()))
+        elapsed = forecasters.compute_elapsed_time(s)
+        tasa = forecasters.compute_scale_factor(s, elapsed) if elapsed else None
+        historia[s.name].append((s.timestamp, c.GetX(), c.GetY(), tasa))
+
+
+def tasa_crecimiento(historia, name):
+    """Tasa de crecimiento de area (1/min) suavizada sobre el historial.
+
+    Promedio ponderado con los mismos pesos que la velocidad (el ultimo paso
+    pesa mas). None si no hay ninguna tasa registrada.
+    """
+    tasas = [p[3] for p in historia.get(name, ()) if len(p) > 3 and p[3] is not None]
+    tasas = tasas[-len(WEIGHTS_FULL):]
+    if not tasas:
+        return None
+    return float(np.average(tasas, weights=WEIGHTS_FULL[-len(tasas):]))
+
+
+def factor_escala(tasa, t, minimo, maximo):
+    """Factor LINEAL (ancho y alto) a aplicar al poligono a t minutos.
+
+    `tasa` es crecimiento de AREA, asi que el area a t minutos es
+    (1 + tasa*t) veces la actual y cada lado escala por su raiz. TATHU aplica
+    (1 + tasa*t) a cada lado, lo que eleva el area al cuadrado; y con tasas
+    negativas el factor cruza cero y shapely espeja el poligono. Por eso la
+    raiz, y el recorte a [minimo, maximo].
+    """
+    area = max(1.0 + tasa * t, 0.0)
+    return float(min(max(np.sqrt(area), minimo), maximo))
 
 
 def ajustar_velocidad(historia, name):
@@ -114,13 +149,17 @@ def aplicar_velocidad_historia(historia, matched):
         s.velocity = rapidez * METERS_PER_DEGREE
 
 
-def pronosticar_con_historia(current, historia, intervals, apply_scale=True):
-    """Como forecasters.Conservative.forecast(), pero con velocidad ponderada.
+def pronosticar_con_historia(current, historia, intervals, apply_scale=True,
+                             escala_min=0.5, escala_max=2.0):
+    """Como forecasters.Conservative.forecast(), con velocidad y crecimiento
+    ponderados sobre el historial.
 
     Reemplaza el delta de 2 puntos que TATHU calcula internamente por la
     velocidad ajustada sobre el historial, para los sistemas que tienen
-    suficientes puntos. El resto (evento, escala, traslacion) es identico al
-    Conservative real: reusa sus mismas funciones de modulo.
+    suficientes puntos. El crecimiento tambien sale del historial
+    (`tasa_crecimiento`) y se aplica con `factor_escala`, no como en TATHU (ver
+    su docstring). Con un historial vacio se comporta como Conservative salvo
+    por esa correccion de la escala.
 
     La unidad interna de `elapsedtime` no se asume: se autocalibra por sistema
     comparando el dt real en segundos contra compute_elapsed_time().
@@ -146,13 +185,16 @@ def pronosticar_con_historia(current, historia, intervals, apply_scale=True):
             base = forecasters.compute_last_centroid(sys_)
             dx, dy = forecasters.delta(sys_.geom.Centroid(), base, elapsed)
 
-        escala = forecasters.compute_scale_factor(sys_, elapsed)
+        tasa = tasa_crecimiento(historia, sys_.name)
+        if tasa is None:
+            tasa = forecasters.compute_scale_factor(sys_, elapsed)
 
         for t in intervals:
             prevision = copy.deepcopy(sys_)
             prevision.geom = transform.translate(sys_.geom, dx * t, dy * t)
             if apply_scale:
-                prevision.geom = transform.scale(prevision.geom, 1 + escala * t, 1 + escala * t)
+                f = factor_escala(tasa, t, escala_min, escala_max)
+                prevision.geom = transform.scale(prevision.geom, f, f)
             forecasts[t].append(prevision)
 
     return forecasts
@@ -300,18 +342,17 @@ def procesar(ruta: Path,
             descriptors.NormalizedAreaExpansionDescriptor().describe(previous, matched)
             descriptors.MovementDescriptor().describe(previous, matched)
 
+            # Sin historial se pasa uno vacio: misma traslacion de 2 puntos que
+            # forecasters.Conservative, pero con la escala corregida.
             if cfg.use_history_velocity:
                 actualizar_historia(historia, matched)
                 aplicar_velocidad_historia(historia, matched)
-                forecasts = pronosticar_con_historia(
-                    matched, historia,
-                    intervals=list(cfg.forecast_intervals),
-                    apply_scale=cfg.apply_scale)
-            else:
-                forecasts = forecasters.Conservative(
-                    previous,
-                    intervals=list(cfg.forecast_intervals),
-                    applyScale=cfg.apply_scale).forecast(matched)
+            forecasts = pronosticar_con_historia(
+                matched, historia if cfg.use_history_velocity else {},
+                intervals=list(cfg.forecast_intervals),
+                apply_scale=cfg.apply_scale,
+                escala_min=cfg.forecast_scale_min,
+                escala_max=cfg.forecast_scale_max)
 
             for lead, fsystems in forecasts.items():
                 if not fsystems:

@@ -55,8 +55,9 @@ that is physics, not a bug. **Don't change thresholds without the met team.**
 ```bash
 docker build -t gl-tracker-tests .
 docker run --rm -v "$PWD":/workspace/gl-tracker:ro -w /workspace/gl-tracker \
-  -e PYTHONPATH=/workspace/gl-tracker gl-tracker-tests python test_gate.py
-# expected: "test_gate: OK"
+  -e PYTHONPATH=/workspace/gl-tracker gl-tracker-tests \
+  sh -c 'python test_gate.py && python test_forecast.py'
+# expected: "test_gate: OK" and "test_forecast: OK"
 ```
 The first build takes a few minutes (GDAL is compiled for Python).
 

@@ -136,6 +136,12 @@ class Config:
     apply_scale: bool = True
     use_history_velocity: bool = True
     velocity_history_len: int = 4
+    # Limites del factor LINEAL (ancho y alto) del poligono pronosticado. La
+    # tasa de crecimiento sale de unos pocos volumenes y se extrapola hasta 63
+    # min: sin tope, un sistema chico que crecio 70% en un paso termina con un
+    # pronostico de decenas de veces su area. 0.5-2 lineal = 0.25-4 en area.
+    forecast_scale_min: float = 0.5
+    forecast_scale_max: float = 2.0
 
     # ── Bucle operativo ──────────────────────────────────────────────────────
     intervalo_sondeo_s: float = 60.0   # cada cuanto mirar si llego un volumen nuevo

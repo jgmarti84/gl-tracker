@@ -168,6 +168,7 @@ python operativo.py --desde-cero     # ignora el estado guardado
 python operativo.py --max-backlog 5  # acota la recuperación tras una caída
 
 python test_gate.py                  # verifica la garantía del gate
+python test_forecast.py              # verifica el crecimiento del pronóstico
 python h0_wrf.py --lat -31.4167 --lon -64.1833     # inspeccionar H0
 ```
 
@@ -285,6 +286,21 @@ Dos reglas:
   sistema recorre 18 km en 20 min y ya no solapa consigo mismo. RMA1 cicla cada
   ~9 min, así que 20 min tolera exactamente un volumen perdido.
 
+### 5. El crecimiento del pronóstico
+
+El pronóstico traslada el sistema con la velocidad ajustada sobre el historial
+y, con `apply_scale`, lo agranda o achica según su tasa de crecimiento de área.
+`forecasters.Conservative` de TATHU aplica esa tasa de **área** como factor
+**lineal** a cada lado, así que el área pronosticada crece al cuadrado; y con
+tasas negativas el factor cruza cero y el polígono se espeja. Un sistema chico
+que creció 70 % en un paso salía a +63 min con decenas de veces su área.
+
+`pronosticar_con_historia` lo corrige: suaviza la tasa sobre el historial (mismos
+pesos que la velocidad), escala cada lado por la raíz del factor de área y lo
+recorta a `[forecast_scale_min, forecast_scale_max]` (0,5–2 lineal = 0,25–4 en
+área). Se usa siempre, también con `use_history_velocity=False` (historial
+vacío). `test_forecast.py` lo verifica.
+
 ---
 
 ## Módulos
@@ -299,6 +315,7 @@ Dos reglas:
 | `pipeline.py` | detección, clasificación, tracking, forecast y salida |
 | `estado.py` | persistencia del estado del tracking entre volúmenes |
 | `test_gate.py` | propiedades que el gate no puede romper |
+| `test_forecast.py` | propiedades del crecimiento del pronóstico |
 
 `grilla.py` es el único módulo que conoce el formato de entrada. Si el paso de
 grillado cambia de formato (GeoTIFF apilado, zarr, npz), el cambio queda

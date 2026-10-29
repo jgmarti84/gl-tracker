@@ -39,7 +39,7 @@ from tathu.tracking.system import ConvectiveSystem
 class Estado:
     ultimo_timestamp: Optional[datetime] = None
     previous: list = field(default_factory=list)          # serializado (dicts)
-    historia: dict = field(default_factory=dict)          # {name: [(ts, cx, cy), ...]}
+    historia: dict = field(default_factory=dict)          # {name: [(ts, cx, cy, tasa), ...]}
 
 
 # --------------------------------------------------------------------------
